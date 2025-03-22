@@ -46,27 +46,51 @@ jobs:
           run: |
             set -e
             set -u
+            set -o pipefail
+
             apt-get update
             apt-get install -y dpkg-dev build-essential lintian pkg-config libgtk-3-dev
             make
+            strip life-switch
             mkdir -p build/deb/usr/bin
-            chmod +x life-switch
             cp life-switch build/deb/usr/bin/
             mkdir -p build/deb/DEBIAN
             mkdir -p build/deb/usr/lib/systemd/system
             cp life-switch.service build/deb/usr/lib/systemd/system/
+            mkdir -p build/deb/usr/share/doc/life-switch
+
+            cat <<EOF > build/deb/usr/share/doc/life-switch/changelog.Debian.gz
+life-switch (${{ env.VERSION }}) unstable; urgency=medium
+
+  * Initial release.
+
+ -- ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>  $(date -R)
+EOF
+            gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
+
+            cat <<EOF > build/deb/usr/share/doc/life-switch/copyright
+Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the MIT License. See the LICENSE file
+for details.
+EOF
+
             cat <<EOF > build/deb/DEBIAN/control
             Package: life-switch
             Version: ${{ env.VERSION }}
-            Architecture: ${{ env.DEB_ARCHITECTURE }}
+            Architecture: amd64
             Maintainer: ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>
-            Description: A simple GTK application.
+            Depends: libgtk-3-0, \${shlibs:Depends}
+            Priority: optional
+            Section: utils
+            Description: Simple GTK application.
              This application serves as a basic GTK example.
-            Depends: libgtk-3-0
             EOF
 
             cat <<EOF > build/deb/DEBIAN/postinst
             #!/bin/sh
+            set -e
             if ! id -u life_switch >/dev/null 2>&1; then
               useradd -r -s /usr/sbin/nologin -M life_switch
             fi
@@ -77,14 +101,15 @@ jobs:
 
             cat <<EOF > build/deb/DEBIAN/prerm
             #!/bin/sh
+            set -e
             systemctl stop life-switch.service
             systemctl disable life-switch.service
             EOF
 
             chmod +x build/deb/DEBIAN/postinst
             chmod +x build/deb/DEBIAN/prerm
-            dpkg-deb --build build/deb life-switch_${{ env.VERSION }}_${{ env.DEB_ARCHITECTURE }}.deb
-            lintian --pedantic --info --show-overrides life-switch_${{ env.VERSION }}_${{ env.DEB_ARCHITECTURE }}.deb
+            dpkg-deb --build build/deb life-switch_${{ env.VERSION }}_amd64.deb
+            lintian --pedantic --info --show-overrides life-switch_${{ env.VERSION }}_amd64.deb
 
       - name: Build RPM package
         run: |
