@@ -51,15 +51,15 @@ jobs:
             apt-get update
             apt-get install -y dpkg-dev build-essential lintian pkg-config libgtk-3-dev
             make
-            strip life-switch
             mkdir -p build/deb/usr/bin
             cp life-switch build/deb/usr/bin/
+            strip build/deb/usr/bin/life-switch  # Corrected strip location
             mkdir -p build/deb/DEBIAN
             mkdir -p build/deb/usr/lib/systemd/system
             cp life-switch.service build/deb/usr/lib/systemd/system/
             mkdir -p build/deb/usr/share/doc/life-switch
 
-            cat <<EOF > build/deb/usr/share/doc/life-switch/changelog.Debian.gz
+            cat < build/deb/usr/share/doc/life-switch/changelog.Debian.gz
 life-switch (${{ env.VERSION }}) unstable; urgency=medium
 
   * Initial release.
@@ -68,7 +68,7 @@ life-switch (${{ env.VERSION }}) unstable; urgency=medium
 EOF
             gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
 
-            cat <<EOF > build/deb/usr/share/doc/life-switch/copyright
+            cat < build/deb/usr/share/doc/life-switch/copyright
 Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
 
 This program is free software; you can redistribute it and/or modify
@@ -76,7 +76,7 @@ it under the terms of the MIT License. See the LICENSE file
 for details.
 EOF
 
-            cat <<EOF > build/deb/DEBIAN/control
+            cat < build/deb/DEBIAN/control
             Package: life-switch
             Version: ${{ env.VERSION }}
             Architecture: amd64
@@ -88,7 +88,7 @@ EOF
              This application serves as a basic GTK example.
             EOF
 
-            cat <<EOF > build/deb/DEBIAN/postinst
+            cat < build/deb/DEBIAN/postinst
             #!/bin/sh
             set -e
             if ! id -u life_switch >/dev/null 2>&1; then
@@ -99,7 +99,7 @@ EOF
             systemctl start life-switch.service
             EOF
 
-            cat <<EOF > build/deb/DEBIAN/prerm
+            cat < build/deb/DEBIAN/prerm
             #!/bin/sh
             set -e
             systemctl stop life-switch.service
@@ -116,11 +116,11 @@ EOF
           set -e
           set -u
           mkdir -p SOURCES SPECS RPMS
-          chmod +x life-switch
           cp life-switch SOURCES/
+          strip SOURCES/life-switch  # Corrected strip location
           cp life-switch.service SOURCES/
 
-          cat <<EOF > SPECS/${{ env.PACKAGE_NAME }}.spec
+          cat < SPECS/${{ env.PACKAGE_NAME }}.spec
           Name:           ${{ env.PACKAGE_NAME }}
           Version:        ${{ env.VERSION }}
           Release:        1%{?dist}
@@ -135,6 +135,7 @@ EOF
 
           %prep
           %build
+          make    #  <--- Added make to the build section
 
           %install
           mkdir -p %{buildroot}/usr/bin
