@@ -53,13 +53,13 @@ jobs:
             make
             mkdir -p build/deb/usr/bin
             cp life-switch build/deb/usr/bin/
-            strip build/deb/usr/bin/life-switch  # Corrected strip location
+            strip build/deb/usr/bin/life-switch
             mkdir -p build/deb/DEBIAN
             mkdir -p build/deb/usr/lib/systemd/system
             cp life-switch.service build/deb/usr/lib/systemd/system/
             mkdir -p build/deb/usr/share/doc/life-switch
 
-            cat < build/deb/usr/share/doc/life-switch/changelog.Debian.gz
+            cat > build/deb/usr/share/doc/life-switch/changelog.Debian.gz <<EOF
 life-switch (${{ env.VERSION }}) unstable; urgency=medium
 
   * Initial release.
@@ -68,7 +68,7 @@ life-switch (${{ env.VERSION }}) unstable; urgency=medium
 EOF
             gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
 
-            cat < build/deb/usr/share/doc/life-switch/copyright
+            cat > build/deb/usr/share/doc/life-switch/copyright <<EOF
 Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
 
 This program is free software; you can redistribute it and/or modify
@@ -76,35 +76,35 @@ it under the terms of the MIT License. See the LICENSE file
 for details.
 EOF
 
-            cat < build/deb/DEBIAN/control
-            Package: life-switch
-            Version: ${{ env.VERSION }}
-            Architecture: amd64
-            Maintainer: ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>
-            Depends: libgtk-3-0, \${shlibs:Depends}
-            Priority: optional
-            Section: utils
-            Description: Simple GTK application.
-             This application serves as a basic GTK example.
-            EOF
+            cat > build/deb/DEBIAN/control <<EOF
+Package: life-switch
+Version: ${{ env.VERSION }}
+Architecture: amd64
+Maintainer: ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>
+Depends: libgtk-3-0, \${shlibs:Depends}
+Priority: optional
+Section: utils
+Description: Simple GTK application.
+ This application serves as a basic GTK example.
+EOF
 
-            cat < build/deb/DEBIAN/postinst
-            #!/bin/sh
-            set -e
-            if ! id -u life_switch >/dev/null 2>&1; then
-              useradd -r -s /usr/sbin/nologin -M life_switch
-            fi
-            systemctl daemon-reload
-            systemctl enable life-switch.service
-            systemctl start life-switch.service
-            EOF
+            cat > build/deb/DEBIAN/postinst <<EOF
+#!/bin/sh
+set -e
+if ! id -u life_switch >/dev/null 2>&1; then
+  useradd -r -s /usr/sbin/nologin -M life_switch
+fi
+systemctl daemon-reload
+systemctl enable life-switch.service
+systemctl start life-switch.service
+EOF
 
-            cat < build/deb/DEBIAN/prerm
-            #!/bin/sh
-            set -e
-            systemctl stop life-switch.service
-            systemctl disable life-switch.service
-            EOF
+            cat > build/deb/DEBIAN/prerm <<EOF
+#!/bin/sh
+set -e
+systemctl stop life-switch.service
+systemctl disable life-switch.service
+EOF
 
             chmod +x build/deb/DEBIAN/postinst
             chmod +x build/deb/DEBIAN/prerm
@@ -117,57 +117,57 @@ EOF
           set -u
           mkdir -p SOURCES SPECS RPMS
           cp life-switch SOURCES/
-          strip SOURCES/life-switch  # Corrected strip location
+          strip SOURCES/life-switch
           cp life-switch.service SOURCES/
 
-          cat < SPECS/${{ env.PACKAGE_NAME }}.spec
-          Name:           ${{ env.PACKAGE_NAME }}
-          Version:        ${{ env.VERSION }}
-          Release:        1%{?dist}
-          Summary:        ${{ env.APP_DESCRIPTION }}
-          License:        MIT
-          BuildArch:      ${{ env.RPM_ARCHITECTURE }}
-          BuildRequires:  gtk3-devel
-          Requires:       gtk3
+          cat > SPECS/${{ env.PACKAGE_NAME }}.spec <<EOF
+Name:           ${{ env.PACKAGE_NAME }}
+Version:        ${{ env.VERSION }}
+Release:        1%{?dist}
+Summary:        ${{ env.APP_DESCRIPTION }}
+License:        MIT
+BuildArch:      ${{ env.RPM_ARCHITECTURE }}
+BuildRequires:  gtk3-devel
+Requires:       gtk3
 
-          %description
-          ${{ env.APP_DESCRIPTION }}
+%description
+${{ env.APP_DESCRIPTION }}
 
-          %prep
-          %build
-          make    #  <--- Added make to the build section
+%prep
+%build
+make
 
-          %install
-          mkdir -p %{buildroot}/usr/bin
-          install -m 755 life-switch %{buildroot}/usr/bin/
-          mkdir -p %{buildroot}/usr/lib/systemd/system
-          install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/
+%install
+mkdir -p %{buildroot}/usr/bin
+install -m 755 life-switch %{buildroot}/usr/bin/
+mkdir -p %{buildroot}/usr/lib/systemd/system
+install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/
 
-          %files
-          /usr/bin/life-switch
-          /usr/lib/systemd/system/life-switch.service
+%files
+/usr/bin/life-switch
+/usr/lib/systemd/system/life-switch.service
 
-          %pre
-          getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch
+%pre
+getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch
 
-          %post
-          systemctl daemon-reload
-          systemctl enable ${{ env.PACKAGE_NAME }}.service
-          systemctl start ${{ env.PACKAGE_NAME }}.service || :
+%post
+systemctl daemon-reload
+systemctl enable ${{ env.PACKAGE_NAME }}.service
+systemctl start ${{ env.PACKAGE_NAME }}.service || :
 
-          %preun
-          systemctl stop ${{ env.PACKAGE_NAME }}.service || :
+%preun
+systemctl stop ${{ env.PACKAGE_NAME }}.service || :
 
-          %postun
-          systemctl disable ${{ env.PACKAGE_NAME }}.service
-          if [ \$1 -eq 0 ]; then
-              true
-          fi
+%postun
+systemctl disable ${{ env.PACKAGE_NAME }}.service
+if [ \$1 -eq 0 ]; then
+    true
+fi
 
-          %changelog
-          * $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1
-          - Initial release.
-          EOF
+%changelog
+* $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1
+- Initial release.
+EOF
 
           rpmbuild -bb SPECS/${{ env.PACKAGE_NAME }}.spec
 
