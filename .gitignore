@@ -1,0 +1,11 @@
+build/
+*.deb
+*.rpm
+release/
+*.tar.gz
+life-switch
+*.o
+SOURCES/
+SPECS/
+RPMS/
+

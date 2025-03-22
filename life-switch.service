@@ -1,0 +1,13 @@
+[Unit]
+Description=Life Switch Service
+After=network.target
+
+[Service]
+Type=simple
+User=life_switch
+ExecStart=/usr/bin/life-switch
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
