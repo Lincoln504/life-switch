@@ -22,14 +22,14 @@ jobs:
       - name: Install RPM Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm rpm-build build-essential
+          sudo apt-get install -y rpm rpmbuild build-essential
 
       - name: Calculate Variables
         id: vars
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
-          else
+          else:
             VERSION="0.0.0-$(date +%Y%m%d%H%M%S)"
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -73,12 +73,14 @@ jobs:
             printf "Version: %s\n" "${{ env.VERSION }}" >> build/deb/DEBIAN/control
             printf "Architecture: %s\n" "${{ env.DEB_ARCHITECTURE }}" >> build/deb/DEBIAN/control
             printf "Maintainer: %s <%s>\n" "${{ env.MAINTAINER_NAME }}" "${{ env.GITHUB_EMAIL }}" >> build/deb/DEBIAN/control
-            printf "Depends: libgtk-3-0, ${shlibs:Depends}\n" >> build/deb/DEBIAN/control
+            printf "Depends: libgtk-3-0, \${shlibs:Depends}\n" >> build/deb/DEBIAN/control
             printf "Priority: optional\n" >> build/deb/DEBIAN/control
             printf "Section: utils\n" >> build/deb/DEBIAN/control
             printf "Description: Simple GTK application.\n This application serves as a basic GTK example.\n" >> build/deb/DEBIAN/control
+            echo "" >> build/deb/DEBIAN/control # Ensure final newline
 
             printf '#!/bin/sh\nset -e\nif ! id -u life_switch >/dev/null 2>&1; then\n  useradd -r -s /usr/sbin/nologin -M life_switch || : \nfi\nsystemctl daemon-reload\nsystemctl enable life-switch.service\nsystemctl start life-switch.service || : \n' > build/deb/DEBIAN/postinst
+
             printf '#!/bin/sh\nset -e\nsystemctl stop life-switch.service || : \nsystemctl disable life-switch.service || : \n' > build/deb/DEBIAN/prerm
             chmod +x build/deb/DEBIAN/postinst build/deb/DEBIAN/prerm
             dpkg-deb --build build/deb life-switch_"${{ env.VERSION }}"_"${{ env.DEB_ARCHITECTURE }}".deb
@@ -87,26 +89,66 @@ jobs:
       - name: Build RPM package
         run: |
           set -euxo pipefail
-          mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS}
+          mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}  # Corrected: Include SRPMS
           cp life-switch rpmbuild/SOURCES/
           strip rpmbuild/SOURCES/life-switch
           cp life-switch.service rpmbuild/SOURCES/
 
-          printf "Name: %s\nVersion: %s\nRelease: 1%%{?dist}\nSummary: %s\nLicense: MIT\nBuildArch: %s\nBuildRequires: gtk3-devel\nRequires: gtk3\n\n%%description\n%s\n\n%%prep\n\n%%build\nmake\n\n%%install\nmkdir -p %%{buildroot}/usr/bin\ninstall -m 755 life-switch %%{buildroot}/usr/bin/\nmkdir -p %%{buildroot}/usr/lib/systemd/system\ninstall -m 644 %%{_sourcedir}/life-switch.service %%{buildroot}/usr/lib/systemd/system/\n\n%%files\n/usr/bin/life-switch\n/usr/lib/systemd/system/life-switch.service\n\n%%pre\ngetent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch || : \n\n%%post\nsystemctl daemon-reload\nsystemctl enable %s.service\nsystemctl start %s.service || : \n\n%%preun\nsystemctl stop %s.service || : \n\n%%postun\nsystemctl disable %s.service || : \n\n%%changelog\n* %s %s <%s> - %s-1\n- Initial release.\n" \
-            "${{ env.PACKAGE_NAME }}" "${{ env.VERSION }}" "${{ env.APP_DESCRIPTION }}" "${{ env.RPM_ARCHITECTURE }}" "${{ env.APP_DESCRIPTION }}" \
-            "${{ env.PACKAGE_NAME }}" "${{ env.PACKAGE_NAME }}" "${{ env.PACKAGE_NAME }}" "${{ env.PACKAGE_NAME }}" \
-            "$(date -R)" "${{ env.MAINTAINER_NAME }}" "${{ env.GITHUB_EMAIL }}" "${{ env.VERSION }}" \
-            > rpmbuild/SPECS/"${{ env.PACKAGE_NAME }}".spec
+          printf "%s\n" "Name:           ${{ env.PACKAGE_NAME }}" \
+            "Version:        ${{ env.VERSION }}" \
+            "Release:        1%{?dist}" \
+            "Summary:        ${{ env.APP_DESCRIPTION }}" \
+            "License:        MIT" \
+            "BuildArch:      ${{ env.RPM_ARCHITECTURE }}" \
+            "BuildRequires:  gtk3-devel" \
+            "Requires:       gtk3" \
+            "" \
+            "%description" \
+            "${{ env.APP_DESCRIPTION }}" \
+            "" \
+            "%prep" \
+            ""\
+            "%build" \
+            "make" \
+            "" \
+            "%install" \
+            "mkdir -p %{buildroot}/usr/bin" \
+            "install -m 755 life-switch %{buildroot}/usr/bin/" \
+            "mkdir -p %{buildroot}/usr/lib/systemd/system" \
+            "install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/" \
+            ""\
+            "%files" \
+            "/usr/bin/life-switch" \
+            "/usr/lib/systemd/system/life-switch.service" \
+            ""\
+            "%pre" \
+            "getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch || : " \
+            ""\
+            "%post" \
+            "systemctl daemon-reload" \
+            "systemctl enable ${{ env.PACKAGE_NAME }}.service" \
+            "systemctl start ${{ env.PACKAGE_NAME }}.service || : " \
+            ""\
+            "%preun" \
+            "systemctl stop ${{ env.PACKAGE_NAME }}.service || : " \
+            ""\
+            "%postun" \
+            "systemctl disable ${{ env.PACKAGE_NAME }}.service || : " \
+            ""\
+            "%changelog" \
+            "* $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1" \
+            "- Initial release." > rpmbuild/SPECS/"${{ env.PACKAGE_NAME }}".spec
 
           rpmbuild -bb --define "_topdir $(pwd)/rpmbuild" rpmbuild/SPECS/"${{ env.PACKAGE_NAME }}".spec
-          mv rpmbuild/RPMS/${{ env.RPM_ARCHITECTURE }}/*.rpm .
+          # Corrected: Move the RPM to the root of the workspace for artifact upload
+          mv rpmbuild/RPMS/"${{ env.RPM_ARCHITECTURE }}"/*.rpm .
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             *.deb
-            *.rpm
+            *.rpm  # Now correctly matches the moved RPM
           tag_name: ${{ github.ref }}
           draft: false
           prerelease: false
