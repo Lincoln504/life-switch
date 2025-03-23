@@ -59,12 +59,14 @@ jobs:
             cp life-switch.service build/deb/usr/lib/systemd/system/
             mkdir -p build/deb/usr/share/doc/life-switch
 
-            # Create UNCOMPRESSED changelog.Debian first
-            echo "life-switch (${{ env.VERSION }}) unstable; urgency=medium
+            # Use | for the changelog (CORRECTED)
+            echo |
+              life-switch (${{ env.VERSION }}) unstable; urgency=medium
 
-  * Initial release.
+                * Initial release.
 
- -- ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>  $(date -R)" > build/deb/usr/share/doc/life-switch/changelog.Debian
+               -- ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>  $(date -R)
+             > build/deb/usr/share/doc/life-switch/changelog.Debian
 
             # THEN compress it
             gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
