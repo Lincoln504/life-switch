@@ -1,5 +1,3 @@
-YAML
-
 name: Build and Release
 
 permissions:
@@ -24,7 +22,7 @@ jobs:
       - name: Install RPM Build Dependencies (on Ubuntu host)
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm build-essential
+          sudo apt-get install -y rpm rpmbuild build-essential
 
       - name: Calculate Variables
         id: vars
