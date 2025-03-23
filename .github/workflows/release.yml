@@ -71,7 +71,7 @@ jobs:
               it under the terms of the MIT License.  See the LICENSE file
               for details." > build/deb/usr/share/doc/life-switch/copyright
 
-            # Control file - Use individual printf statements for each line
+            # Control file - Use individual printf statements for each line AND add a final newline
             printf "Package: life-switch\n" > build/deb/DEBIAN/control
             printf "Version: %s\n" "${{ env.VERSION }}" >> build/deb/DEBIAN/control
             printf "Architecture: %s\n" "${{ env.DEB_ARCHITECTURE }}" >> build/deb/DEBIAN/control
@@ -81,6 +81,7 @@ jobs:
             printf "Section: utils\n" >> build/deb/DEBIAN/control
             printf "Description: Simple GTK application.\n" >> build/deb/DEBIAN/control
             printf " This application serves as a basic GTK example.\n" >> build/deb/DEBIAN/control
+            echo "" >> build/deb/DEBIAN/control  # Add the crucial final newline
 
 
             # postinst
