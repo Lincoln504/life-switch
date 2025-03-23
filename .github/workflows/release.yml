@@ -65,47 +65,38 @@ jobs:
             # THEN compress it
             gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
 
-            # Corrected: Remove 'echo |'  (THIS WAS THE ERROR)
-            |
-              Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
-
+            # Use > (folded style) and explicit newlines (CORRECTED)
+            echo "Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
               This program is free software; you can redistribute it and/or modify
               it under the terms of the MIT License.  See the LICENSE file
-              for details.
-             > build/deb/usr/share/doc/life-switch/copyright
+              for details." > build/deb/usr/share/doc/life-switch/copyright
 
-            # Corrected: Remove 'echo |'
-            |
-              Package: life-switch
+            # Use > (folded style) and explicit newlines (CORRECTED)
+            echo "Package: life-switch
               Version: ${{ env.VERSION }}
               Architecture: amd64
               Maintainer: ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>
-              Depends: libgtk-3-0, ${shlibs:Depends}
+              Depends: libgtk-3-0, \${shlibs:Depends}
               Priority: optional
               Section: utils
               Description: Simple GTK application.
-               This application serves as a basic GTK example.
-             > build/deb/DEBIAN/control
+               This application serves as a basic GTK example." > build/deb/DEBIAN/control
 
-            # Corrected: Remove 'echo |'
-            |
-              #!/bin/sh
+            # Use > (folded style) and explicit newlines (CORRECTED)
+            echo "#!/bin/sh
               set -e
               if ! id -u life_switch >/dev/null 2>&1; then
                 useradd -r -s /usr/sbin/nologin -M life_switch
               fi
               systemctl daemon-reload
               systemctl enable life-switch.service
-              systemctl start life-switch.service
-             > build/deb/DEBIAN/postinst
+              systemctl start life-switch.service" > build/deb/DEBIAN/postinst
 
-            # Corrected: Remove 'echo |'
-            |
-              #!/bin/sh
+            # Use > (folded style) and explicit newlines (CORRECTED)
+            echo "#!/bin/sh
               set -e
               systemctl stop life-switch.service
-              systemctl disable life-switch.service
-             > build/deb/DEBIAN/prerm
+              systemctl disable life-switch.service" > build/deb/DEBIAN/prerm
 
             chmod +x build/deb/DEBIAN/postinst
             chmod +x build/deb/DEBIAN/prerm
@@ -120,58 +111,55 @@ jobs:
           cp life-switch SOURCES/
           strip SOURCES/life-switch
           cp life-switch.service SOURCES/
+          # correct rpm spec file
+          echo "
+Name:           ${{ env.PACKAGE_NAME }}
+Version:        ${{ env.VERSION }}
+Release:        1%{?dist}
+Summary:        ${{ env.APP_DESCRIPTION }}
+License:        MIT
+BuildArch:      ${{ env.RPM_ARCHITECTURE }}
+BuildRequires:  gtk3-devel
+Requires:       gtk3
 
-          # Use | for the entire spec file (much cleaner)
-          # No escaping needed inside | blocks
-          echo |
-            Name:           ${{ env.PACKAGE_NAME }}
-            Version:        ${{ env.VERSION }}
-            Release:        1%{?dist}
-            Summary:        ${{ env.APP_DESCRIPTION }}
-            License:        MIT
-            BuildArch:      ${{ env.RPM_ARCHITECTURE }}
-            BuildRequires:  gtk3-devel
-            Requires:       gtk3
+%description
+${{ env.APP_DESCRIPTION }}
 
-            %description
-            ${{ env.APP_DESCRIPTION }}
+%prep
+%build
+make
 
-            %prep
-            %build
-            make
+%install
+mkdir -p %{buildroot}/usr/bin
+install -m 755 life-switch %{buildroot}/usr/bin/
+mkdir -p %{buildroot}/usr/lib/systemd/system
+install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/
 
-            %install
-            mkdir -p %{buildroot}/usr/bin
-            install -m 755 life-switch %{buildroot}/usr/bin/
-            mkdir -p %{buildroot}/usr/lib/systemd/system
-            install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/
+%files
+/usr/bin/life-switch
+/usr/lib/systemd/system/life-switch.service
 
-            %files
-            /usr/bin/life-switch
-            /usr/lib/systemd/system/life-switch.service
+%pre
+getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch
 
-            %pre
-            getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch
+%post
+systemctl daemon-reload
+systemctl enable ${{ env.PACKAGE_NAME }}.service
+systemctl start ${{ env.PACKAGE_NAME }}.service || :
 
-            %post
-            systemctl daemon-reload
-            systemctl enable ${{ env.PACKAGE_NAME }}.service
-            systemctl start ${{ env.PACKAGE_NAME }}.service || :
+%preun
+systemctl stop ${{ env.PACKAGE_NAME }}.service || :
 
-            %preun
-            systemctl stop ${{ env.PACKAGE_NAME }}.service || :
+%postun
+systemctl disable ${{ env.PACKAGE_NAME }}.service
+if [ \$1 -eq 0 ]; then
+    true
+fi
 
-            %postun
-            systemctl disable ${{ env.PACKAGE_NAME }}.service
-            if [ \$1 -eq 0 ]; then
-                true
-            fi
-
-            %changelog
-            * $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1
-            - Initial release.
-           > SPECS/${{ env.PACKAGE_NAME }}.spec
-
+%changelog
+* $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1
+- Initial release.
+" > SPECS/${{ env.PACKAGE_NAME }}.spec
           rpmbuild -bb SPECS/${{ env.PACKAGE_NAME }}.spec
 
       - name: Create Release
