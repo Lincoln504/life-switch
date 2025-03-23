@@ -1,3 +1,5 @@
+YAML
+
 name: Build and Release
 
 permissions:
@@ -19,10 +21,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install RPM Build Dependencies
+      - name: Install RPM Build Dependencies (on Ubuntu host)
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm rpmbuild build-essential
+          sudo apt-get install -y rpm build-essential
 
       - name: Calculate Variables
         id: vars
@@ -77,7 +79,7 @@ jobs:
             printf "Priority: optional\n" >> build/deb/DEBIAN/control
             printf "Section: utils\n" >> build/deb/DEBIAN/control
             printf "Description: Simple GTK application.\n This application serves as a basic GTK example.\n" >> build/deb/DEBIAN/control
-            echo "" >> build/deb/DEBIAN/control # Ensure final newline
+            echo "" >> build/deb/DEBIAN/control  # Ensure final newline
 
             printf '#!/bin/sh\nset -e\nif ! id -u life_switch >/dev/null 2>&1; then\n  useradd -r -s /usr/sbin/nologin -M life_switch || : \nfi\nsystemctl daemon-reload\nsystemctl enable life-switch.service\nsystemctl start life-switch.service || : \n' > build/deb/DEBIAN/postinst
 
@@ -89,7 +91,7 @@ jobs:
       - name: Build RPM package
         run: |
           set -euxo pipefail
-          mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}  # Corrected: Include SRPMS
+          mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
           cp life-switch rpmbuild/SOURCES/
           strip rpmbuild/SOURCES/life-switch
           cp life-switch.service rpmbuild/SOURCES/
@@ -140,7 +142,6 @@ jobs:
             "- Initial release." > rpmbuild/SPECS/"${{ env.PACKAGE_NAME }}".spec
 
           rpmbuild -bb --define "_topdir $(pwd)/rpmbuild" rpmbuild/SPECS/"${{ env.PACKAGE_NAME }}".spec
-          # Corrected: Move the RPM to the root of the workspace for artifact upload
           mv rpmbuild/RPMS/"${{ env.RPM_ARCHITECTURE }}"/*.rpm .
 
       - name: Create Release
@@ -148,7 +149,7 @@ jobs:
         with:
           files: |
             *.deb
-            *.rpm  # Now correctly matches the moved RPM
+            *.rpm
           tag_name: ${{ github.ref }}
           draft: false
           prerelease: false
