@@ -71,9 +71,17 @@ jobs:
               it under the terms of the MIT License.  See the LICENSE file
               for details." > build/deb/usr/share/doc/life-switch/copyright
 
-            # Control file - Ensure a trailing newline!
-            printf "Package: life-switch\nVersion: %s\nArchitecture: %s\nMaintainer: %s <%s>\nDepends: libgtk-3-0, \${shlibs:Depends}\nPriority: optional\nSection: utils\nDescription: Simple GTK application.\n This application serves as a basic GTK example.\n" "${{ env.VERSION }}" "${{ env.DEB_ARCHITECTURE }}" "${{ env.MAINTAINER_NAME }}" "${{ env.GITHUB_EMAIL }}" "\${shlibs:Depends}" | tee build/deb/DEBIAN/control
-            echo "" >> build/deb/DEBIAN/control # Add an extra newline
+            # Control file - Use individual printf statements for each line
+            printf "Package: life-switch\n" > build/deb/DEBIAN/control
+            printf "Version: %s\n" "${{ env.VERSION }}" >> build/deb/DEBIAN/control
+            printf "Architecture: %s\n" "${{ env.DEB_ARCHITECTURE }}" >> build/deb/DEBIAN/control
+            printf "Maintainer: %s <%s>\n" "${{ env.MAINTAINER_NAME }}" "${{ env.GITHUB_EMAIL }}" >> build/deb/DEBIAN/control
+            printf "Depends: libgtk-3-0, \${shlibs:Depends}\n" >> build/deb/DEBIAN/control
+            printf "Priority: optional\n" >> build/deb/DEBIAN/control
+            printf "Section: utils\n" >> build/deb/DEBIAN/control
+            printf "Description: Simple GTK application.\n" >> build/deb/DEBIAN/control
+            printf " This application serves as a basic GTK example.\n" >> build/deb/DEBIAN/control
+
 
             # postinst
             printf '#!/bin/sh\nset -e\nif ! id -u life_switch >/dev/null 2>&1; then\n  useradd -r -s /usr/sbin/nologin -M life_switch || : \nfi\nsystemctl daemon-reload\nsystemctl enable life-switch.service\nsystemctl start life-switch.service || : \n' > build/deb/DEBIAN/postinst
