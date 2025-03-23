@@ -34,8 +34,10 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "PACKAGE_NAME=$(basename ${{ github.repository }})" >> $GITHUB_ENV
-          echo "DEB_ARCHITECTURE=${ARCHITECTURE:-all}" >> $GITHUB_ENV
-          echo "RPM_ARCHITECTURE=${ARCHITECTURE:-noarch}" >> $GITHUB_ENV
+          echo "DEB_ARCHITECTURE=amd64" >> $GITHUB_ENV  # Explicitly set to amd64
+          echo "RPM_ARCHITECTURE=x86_64" >> $GITHUB_ENV # Explicitly set to x86_64
+          echo "APP_DESCRIPTION=Simple GTK application." >> $GITHUB_ENV
+          echo "MAINTAINER_NAME=${{ github.actor }}" >> $GITHUB_ENV
 
       - name: Build and Package DEB (inside Debian Docker container)
         uses: addnab/docker-run-action@v3
@@ -71,96 +73,75 @@ jobs:
               it under the terms of the MIT License.  See the LICENSE file
               for details." > build/deb/usr/share/doc/life-switch/copyright
 
-            # Corrected: Remove 'echo |'
-            echo "Package: life-switch
-              Version: ${{ env.VERSION }}
-              Architecture: amd64
-              Maintainer: ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>
-              Depends: libgtk-3-0, \${shlibs:Depends}
-              Priority: optional
-              Section: utils
-              Description: Simple GTK application.
-               This application serves as a basic GTK example." > build/deb/DEBIAN/control
+            # Corrected:  Use printf for multi-line, and escape $ properly
+            printf "Package: life-switch\nVersion: %s\nArchitecture: %s\nMaintainer: %s <%s>\nDepends: libgtk-3-0, %s\nPriority: optional\nSection: utils\nDescription: Simple GTK application.\n This application serves as a basic GTK example.\n" "${{ env.VERSION }}" "${{ env.DEB_ARCHITECTURE }}" "${{ env.MAINTAINER_NAME }}" "${{ env.GITHUB_EMAIL }}" "\${shlibs:Depends}" > build/deb/DEBIAN/control
 
-            # Corrected: Remove 'echo |'
-            echo "#!/bin/sh
-              set -e
-              if ! id -u life_switch >/dev/null 2>&1; then
-                useradd -r -s /usr/sbin/nologin -M life_switch
-              fi
-              systemctl daemon-reload
-              systemctl enable life-switch.service
-              systemctl start life-switch.service" > build/deb/DEBIAN/postinst
+            # Corrected: Use printf for multi-line.  Added '|| : ' to useradd for robustness
+            printf '#!/bin/sh\nset -e\nif ! id -u life_switch >/dev/null 2>&1; then\n  useradd -r -s /usr/sbin/nologin -M life_switch || : \nfi\nsystemctl daemon-reload\nsystemctl enable life-switch.service\nsystemctl start life-switch.service || : \n' > build/deb/DEBIAN/postinst
 
-            # Corrected: Remove 'echo |'
-            echo "#!/bin/sh
-              set -e
-              systemctl stop life-switch.service
-              systemctl disable life-switch.service" > build/deb/DEBIAN/prerm
+            # Corrected: Use printf for multi-line
+            printf '#!/bin/sh\nset -e\nsystemctl stop life-switch.service || : \nsystemctl disable life-switch.service || : \n' > build/deb/DEBIAN/prerm
 
             chmod +x build/deb/DEBIAN/postinst
             chmod +x build/deb/DEBIAN/prerm
-            dpkg-deb --build build/deb life-switch_${{ env.VERSION }}_amd64.deb
-            lintian --pedantic --info --show-overrides life-switch_${{ env.VERSION }}_amd64.deb
+            dpkg-deb --build build/deb life-switch_"${{ env.VERSION }}"_"${{ env.DEB_ARCHITECTURE }}".deb
+            lintian --pedantic --info --show-overrides life-switch_"${{ env.VERSION }}"_"${{ env.DEB_ARCHITECTURE }}".deb
 
       - name: Build RPM package
         run: |
           set -e
           set -u
-          mkdir -p SOURCES SPECS RPMS
+          mkdir -p SOURCES SPECS RPMS/{BUILD,RPMS,SRPMS,SOURCES,SPECS} # Ensure all subdirs exist
           cp life-switch SOURCES/
           strip SOURCES/life-switch
           cp life-switch.service SOURCES/
 
-          # Corrected EOF Indentation (FINALLY!)
-          cat <<EOF > SPECS/${{ env.PACKAGE_NAME }}.spec
-            Name:           ${{ env.PACKAGE_NAME }}
-            Version:        ${{ env.VERSION }}
-            Release:        1%{?dist}
-            Summary:        ${{ env.APP_DESCRIPTION }}
-            License:        MIT
-            BuildArch:      ${{ env.RPM_ARCHITECTURE }}
-            BuildRequires:  gtk3-devel
-            Requires:       gtk3
+          # Corrected EOF Indentation (FINALLY!) and added missing fields.  Use printf.
+          printf "%s\n" "Name:           ${{ env.PACKAGE_NAME }}" \
+            "Version:        ${{ env.VERSION }}" \
+            "Release:        1%{?dist}" \
+            "Summary:        ${{ env.APP_DESCRIPTION }}" \
+            "License:        MIT" \
+            "BuildArch:      ${{ env.RPM_ARCHITECTURE }}" \
+            "BuildRequires:  gtk3-devel" \
+            "Requires:       gtk3" \
+            "" \
+            "%description" \
+            "${{ env.APP_DESCRIPTION }}" \
+            "" \
+            "%prep" \
+            ""\
+            "%build" \
+            "make" \
+            "" \
+            "%install" \
+            "mkdir -p %{buildroot}/usr/bin" \
+            "install -m 755 life-switch %{buildroot}/usr/bin/" \
+            "mkdir -p %{buildroot}/usr/lib/systemd/system" \
+            "install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/" \
+            ""\
+            "%files" \
+            "/usr/bin/life-switch" \
+            "/usr/lib/systemd/system/life-switch.service" \
+            ""\
+            "%pre" \
+            "getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch || : " \
+            ""\
+            "%post" \
+            "systemctl daemon-reload" \
+            "systemctl enable ${{ env.PACKAGE_NAME }}.service" \
+            "systemctl start ${{ env.PACKAGE_NAME }}.service || : " \
+            ""\
+            "%preun" \
+            "systemctl stop ${{ env.PACKAGE_NAME }}.service || : " \
+            ""\
+            "%postun" \
+            "systemctl disable ${{ env.PACKAGE_NAME }}.service || : " \
+            ""\
+            "%changelog" \
+            "* $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1" \
+            "- Initial release." > SPECS/${{ env.PACKAGE_NAME }}.spec
 
-            %description
-            ${{ env.APP_DESCRIPTION }}
-
-            %prep
-            %build
-            make
-
-            %install
-            mkdir -p %{buildroot}/usr/bin
-            install -m 755 life-switch %{buildroot}/usr/bin/
-            mkdir -p %{buildroot}/usr/lib/systemd/system
-            install -m 644 %{_sourcedir}/life-switch.service %{buildroot}/usr/lib/systemd/system/
-
-            %files
-            /usr/bin/life-switch
-            /usr/lib/systemd/system/life-switch.service
-
-            %pre
-            getent passwd life_switch >/dev/null || useradd -r -s /usr/sbin/nologin -M life_switch
-
-            %post
-            systemctl daemon-reload
-            systemctl enable ${{ env.PACKAGE_NAME }}.service
-            systemctl start ${{ env.PACKAGE_NAME }}.service || :
-
-            %preun
-            systemctl stop ${{ env.PACKAGE_NAME }}.service || :
-
-            %postun
-            systemctl disable ${{ env.PACKAGE_NAME }}.service
-            if [ \$1 -eq 0 ]; then
-                true
-            fi
-
-            %changelog
-            * $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1
-            - Initial release.
-EOF
           rpmbuild -bb SPECS/${{ env.PACKAGE_NAME }}.spec
 
       - name: Create Release
@@ -169,7 +150,7 @@ EOF
           files: |
             *.deb
             RPMS/**/*.rpm
-          tag_name: ${{ github.ref }}
+          tag_name: ${{ github.ref }}  # Use github.ref directly
           draft: false
           prerelease: false
         if: github.ref_type == 'tag'
