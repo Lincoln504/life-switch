@@ -22,7 +22,7 @@ jobs:
       - name: Install RPM Build Dependencies (on Ubuntu host)
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm rpmbuild build-essential
+          sudo apt-get install -y rpm build-essential rpm-build
 
       - name: Calculate Variables
         id: vars
