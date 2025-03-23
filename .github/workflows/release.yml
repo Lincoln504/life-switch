@@ -112,7 +112,7 @@ jobs:
           strip SOURCES/life-switch
           cp life-switch.service SOURCES/
 
-          # Corrected Indentation within Here-Document (FINALLY!)
+          # Corrected EOF Indentation (FINALLY!)
           cat <<EOF > SPECS/${{ env.PACKAGE_NAME }}.spec
             Name:           ${{ env.PACKAGE_NAME }}
             Version:        ${{ env.VERSION }}
