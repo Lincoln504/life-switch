@@ -59,20 +59,13 @@ jobs:
             cp life-switch.service build/deb/usr/lib/systemd/system/
             mkdir -p build/deb/usr/share/doc/life-switch
 
-            # Use double quotes, escape $ and () (CORRECTED)
-            echo |
-              life-switch (\${{ env.VERSION }}) unstable; urgency=medium
-
-                * Initial release.
-
-               -- \${{ env.MAINTAINER_NAME }} <\${{ env.GITHUB_EMAIL }}>  $(date -R)
-             > build/deb/usr/share/doc/life-switch/changelog.Debian
+            # Corrected escaping using printf (FINALLY!)
+            printf "life-switch (%s) unstable; urgency=medium\n\n  * Initial release.\n\n -- %s <%s>  %s\n" "${{ env.VERSION }}" "${{ env.MAINTAINER_NAME }}" "${{ env.GITHUB_EMAIL }}" "$(date -R)" > build/deb/usr/share/doc/life-switch/changelog.Debian
 
             # THEN compress it
             gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
 
             # Use | for multi-line strings (cleaner YAML)
-            # No need for special escaping inside these blocks
             echo |
               Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
 
@@ -86,7 +79,7 @@ jobs:
               Version: ${{ env.VERSION }}
               Architecture: amd64
               Maintainer: ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}>
-              Depends: libgtk-3-0, \${shlibs:Depends}
+              Depends: libgtk-3-0, ${shlibs:Depends}
               Priority: optional
               Section: utils
               Description: Simple GTK application.
