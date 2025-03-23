@@ -59,9 +59,9 @@ jobs:
             cp life-switch.service build/deb/usr/lib/systemd/system/
             mkdir -p build/deb/usr/share/doc/life-switch
 
-            # Use | for the changelog (CORRECTED)
+            # Escape parentheses and other special characters
             echo |
-              life-switch (${{ env.VERSION }}) unstable; urgency=medium
+              life-switch ('${{ env.VERSION }}') unstable; urgency=medium
 
                 * Initial release.
 
@@ -72,6 +72,7 @@ jobs:
             gzip -9 build/deb/usr/share/doc/life-switch/changelog.Debian
 
             # Use | for multi-line strings (cleaner YAML)
+            # Escape any single quotes within these strings as '\''
             echo |
               Copyright (C) $(date +%Y) ${{ env.MAINTAINER_NAME }}
 
@@ -125,6 +126,7 @@ jobs:
           cp life-switch.service SOURCES/
 
           # Use | for the entire spec file (much cleaner)
+          # Escape single quotes as '\''
           echo |
             Name:           ${{ env.PACKAGE_NAME }}
             Version:        ${{ env.VERSION }}
