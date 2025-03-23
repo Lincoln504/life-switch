@@ -29,7 +29,7 @@ jobs:
         run: |
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')
-          else:
+          else
             VERSION="0.0.0-$(date +%Y%m%d%H%M%S)"
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
@@ -111,8 +111,9 @@ jobs:
           cp life-switch SOURCES/
           strip SOURCES/life-switch
           cp life-switch.service SOURCES/
-          # correct rpm spec file
-          echo "
+
+          # Corrected: Use cat and a here-document (AGAIN, but correctly!)
+          cat <<EOF > SPECS/${{ env.PACKAGE_NAME }}.spec
 Name:           ${{ env.PACKAGE_NAME }}
 Version:        ${{ env.VERSION }}
 Release:        1%{?dist}
@@ -159,7 +160,7 @@ fi
 %changelog
 * $(date -R) ${{ env.MAINTAINER_NAME }} <${{ env.GITHUB_EMAIL }}> - ${{ env.VERSION }}-1
 - Initial release.
-" > SPECS/${{ env.PACKAGE_NAME }}.spec
+EOF
           rpmbuild -bb SPECS/${{ env.PACKAGE_NAME }}.spec
 
       - name: Create Release
